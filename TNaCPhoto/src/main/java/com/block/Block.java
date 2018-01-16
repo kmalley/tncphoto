@@ -1,58 +1,85 @@
 package ie.km.ripple.bc;
 
 import ie.km.ripple.bc.MerkleTree.Node;
-import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import sun.misc.BASE64Encoder;
+import java.util.Set;
 
 public class Block {
 
-    private final byte[] previousHash;
+    public final static int MAX_NUM_TRANSACTIONS = 6;
 
-    private Map<byte[], Transaction> transactionMap = new HashMap<byte[], Transaction>();
+    private final String previousHash;
 
-    private List<Transaction> transactionList = new ArrayList<>();
-
-    private int nonce;
-
-    private MessageDigest md = MessageDigest.getInstance("SHA-256");
+    private Map<byte[], Transaction> transactionMap = new HashMap<>();
 
     private MerkleTree angela;
 
     private Node root;
 
-    private BASE64Encoder encoder = new BASE64Encoder();
+    private String proofOfWork;
 
-    public Block(byte[] previousHash) throws NoSuchAlgorithmException {
-        this.previousHash = previousHash;
+    private int transactionCounter = 0;
+
+    public Block(byte[] previousHash) {
+        this.previousHash = String.valueOf(previousHash);
+    }
+
+    public boolean isBlockFull() {
+        return (transactionCounter == MAX_NUM_TRANSACTIONS);
     }
 
     public String addTransaction(Transaction t) {
-        byte[] transHash = md.digest(t.toString().getBytes());
+        if (!isBlockFull()) {
+            transactionCounter++;
+            byte[] transHash = Hash.digest(t.toString().getBytes());
 
-        String hashAsString =  encoder.encode(transHash);
-        transactionMap.put(transHash, t);
-        transactionList.add(t);
-        System.out.println("Hash="+ hashAsString);
-        return hashAsString;
+            String hashAsString = Hash.encode(transHash);
+            transactionMap.put(transHash, t);
+            System.out.println("Hash=" + hashAsString);
+            return hashAsString;
+        } else throw new RuntimeException("Block full");
     }
 
-    public void create() throws NoSuchAlgorithmException {
+    public Node mineBlock() {
         angela = new MerkleTree(transactionMap.keySet());
         root = angela.build();
-        System.out.println("Root hash=" + encoder.encode(root.getHash()));
+        System.out.println("Root hash=" + Hash.encode(root.getHash()));
+        proofOfWork = generateProofOfWork();
+        return root;
     }
 
-
-    protected static Block createGenesisBlock() throws NoSuchAlgorithmException {
-        return new Block("/mttCtevLaG1GsBa0azSACs9S5uoYw7xVy9QxfJwbiU=".getBytes());
+    private String generateProofOfWork() {
+        HashCash hc = new HashCash("1", 20, "170115", String.valueOf(previousHash + root.getHash()));
+        return hc.mint();
     }
 
+    public boolean isMined() {
+        return proofOfWork == null ? false : true;
+    }
+
+    public Set<byte[]> getTransactionHashList() {
+        return transactionMap.keySet();
+    }
     public Node getRoot() {
         return root;
     }
+
+    public MerkleTree getMerkleTree() {
+        return angela;
+    }
+
+    public int getNumberOfTransactions() {
+        return transactionMap.size();
+    }
+
+    protected static Block createGenesisBlock() throws NoSuchAlgorithmException {
+        Block b = new Block("/mttCtevLaG1GsBa0azSACs9S5uoYw7xVy9QxfJwbiU=".getBytes());
+        b.addTransaction(new Transaction(Account.create(), Account.create(), 100l));
+        b.addTransaction(new Transaction(Account.create(), Account.create(), 200l));
+        b.mineBlock();
+        return b;
+    }
+
 }

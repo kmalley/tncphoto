@@ -1,49 +1,62 @@
 package ie.km.ripple.bc;
 
-import java.io.IOException;
-import java.math.BigInteger;
-import java.security.DigestException;
 import java.security.NoSuchAlgorithmException;
-import org.apache.commons.codec.EncoderException;
-import sun.misc.BASE64Encoder;
+import java.util.HashMap;
+import java.util.LinkedList;
 
 public class BlockChain {
 
-   private static Block genesis;
+    private static Block genesis;
 
-   private static BASE64Encoder encoder = new BASE64Encoder();
+    private LinkedList<Block> chain = new LinkedList<>();
 
-   public static void main(String args[])
-           throws NoSuchAlgorithmException, DigestException, IOException, EncoderException {
-      Block block = new Block("mttCtevLaG1GsBa0azSACs9S5uoYw7xVy9QxfJwbiU=".getBytes());
+    private HashMap<String, Block> transactionMap = new HashMap<>();
 
-      block.addTransaction(new Transaction("A","1", "2", 100l));
-      block.addTransaction(new Transaction("B", "3", "4", 200l));
-      block.addTransaction(new Transaction("C", "5", "6", 300l));
-      block.addTransaction(new Transaction("D", "7", "8", 400l));
-      block.addTransaction(new Transaction("E","9", "10", 400l));
-      block.addTransaction(new Transaction("F", "11", "12", 400l));
+    private Block activeBlock;
 
-      block.create();
-       //      block.createBlock();
+    public BlockChain() throws NoSuchAlgorithmException {
+        genesis = Block.createGenesisBlock();
+        chain.add(genesis);
+    }
 
-      String encodedRootHash = encoder.encode(block.getRoot().getHash());
+    public Block createBlock() {
+        return new Block(chain.peekLast().getRoot().getHash());
+    }
 
 
-      HashCash hc = new HashCash("1", 20, "170115", encodedRootHash);
-      hc.mine();
+    public String processTransaction(Transaction transaction) {
+        if (activeBlock == null) {
+            activeBlock = createBlock();
+        }
+
+        String transactionHash = activeBlock.addTransaction(transaction);
+
+        if (activeBlock.isBlockFull()) {
+            activeBlock.mineBlock();
+            //
+            // Link each transaction to the block in the clain
+            activeBlock.getTransactionHashList()
+                    .forEach(trans -> transactionMap.put(String.valueOf(trans), activeBlock));
+            //
+            // Block complete so add it to the chain
+            chain.add(activeBlock);
+        }
+
+        return transactionHash;
+    }
+
+    public static void main(String args[])
+            throws NoSuchAlgorithmException {
+        BlockChain bc = new BlockChain();
+
+        bc.processTransaction(new Transaction(Account.create(), Account.create(), 100l));
+        bc.processTransaction(new Transaction(Account.create(), Account.create(), 200l));
+        bc.processTransaction(new Transaction(Account.create(), Account.create(), 300l));
+        bc.processTransaction(new Transaction(Account.create(), Account.create(), 400l));
+        bc.processTransaction(new Transaction(Account.create(), Account.create(), 400l));
+        bc.processTransaction(new Transaction(Account.create(), Account.create(), 500l));
 
 
-   }
-
-   public BlockChain() throws NoSuchAlgorithmException {
-       genesis = Block.createGenesisBlock();
-   }
-
-
-
-   public void addBlock() {
-
-   }
+    }
 
 }

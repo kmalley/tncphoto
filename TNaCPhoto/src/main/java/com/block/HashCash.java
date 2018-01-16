@@ -1,15 +1,29 @@
 package ie.km.ripple.bc;
 
-import java.io.IOException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Collections;
 import java.util.Random;
-import org.apache.commons.codec.EncoderException;
 import org.apache.commons.codec.binary.BinaryCodec;
-import sun.misc.BASE64Decoder;
 import sun.misc.BASE64Encoder;
 
+/**
+ * Simple implementation of the HashCash algorithm.
+ *
+ * The cost of generating the header with a 20 zero bit hash prefix is between 1 and 15 seconds
+ *
+ * Sample header:
+ *
+ * X-Hashcash: 1:20:1801160600:P5px+rhe4k9Vn4J08fXW1hnt0MX/QN5ddqRU4w+ykjA=::zmcjVcMDnCt98G5TfczLDTdfaT4:MA==
+ *
+ * Version  : HashCash format version currently at 1
+ * Bits     : Number of zero bits in the hashed code
+ * Date     : Time of message in the format YYMMDD[hhmm[ss]]
+ * Resource : Date string being transmitted
+ * Extension: Ignored in version 1
+ * Random   : String of random character base-64 encoded
+ * Counter  : Base-64 encoded counter
+ */
 public class HashCash {
 
     private final String version;
@@ -22,17 +36,11 @@ public class HashCash {
 
     private final String randomString;
 
-    private final int NUM_RAND_CHARACTERS = 20;
-
     private final String HASH_PREFIX;
 
-    private int nonce = 0;
+    private final int NUM_RAND_CHARACTERS = 20;
 
-    private BASE64Encoder encoder = new BASE64Encoder();
-
-    private MessageDigest md = MessageDigest.getInstance("SHA-1");
-
-    public HashCash(String version, int numZeroBits, String date, String resource) throws NoSuchAlgorithmException {
+    public HashCash(String version, int numZeroBits, String date, String resource) {
         this.version = version;
         this.numZeroBits = numZeroBits;
         this.date = date;
@@ -41,44 +49,50 @@ public class HashCash {
         this.HASH_PREFIX = String.join("", Collections.nCopies(numZeroBits, "0"));
     }
 
-    public String mine() throws EncoderException, IOException {
+    public String mint()  {
+        int counter = 0;
 
-        String header = version + ":" + numZeroBits + ":" + date + ":" + resource + ":"
-                + randomString + ":" + encoder.encode(String.valueOf(nonce).getBytes());
+        System.out.println("Hashing the header " + generateHeader(0));
 
-        System.out.println("Hashing the header " + header);
-
-        String result = "";
-        String resultInBinary = "";
-        byte[] hash = null;
+        String binaryResult = "";
 
         long start = System.currentTimeMillis();
-        while (!resultInBinary.startsWith(HASH_PREFIX)) {
-            nonce++;
-            header = version + ":" + numZeroBits + ":" + date + ":" + resource + "::"
-                    + randomString + ":" + encoder.encode(String.valueOf(nonce).getBytes());
-            hash = md.digest(header.getBytes());
-            resultInBinary = BinaryCodec.toAsciiString(hash);
 
-            if (nonce % 100000 == 0)
-                System.out.println("Hashing iteration= " + nonce  + " + current val=" + resultInBinary );
+        while (!binaryResult.startsWith(HASH_PREFIX)) {
+            counter++;
+            byte[] hash = Hash.digest(generateHeader(counter).getBytes());
+            binaryResult = BinaryCodec.toAsciiString(hash);
+
+            if (counter % 100000 == 0) {
+                System.out.println("Hashing iteration= " + counter + " + current val=" + binaryResult);
+            }
         }
 
         long stop = System.currentTimeMillis();
-//
-//        String a = encoder.encode(hash);
-//        System.out.println(a);
-        System.out.println("Result in " + ((stop - start) / 1000.0) + " seconds and " + nonce + " iterations. Result=" + resultInBinary);
-//        BASE64Decoder decoder = new BASE64Decoder();
-//        byte[] b = decoder.decodeBuffer(a);
 
-        return header;
+        System.out.println("Result in " + ((stop - start) / 1000.0) + " seconds and " + counter + " iterations. Result=" + binaryResult);
+
+        return generateHeader(counter);
+    }
+
+    private String generateHeader(int counter) {
+        return new StringBuffer()
+                .append(version)
+                .append(':')
+                .append(numZeroBits)
+                .append(':')
+                .append(date)
+                .append(':')
+                .append(resource)
+                .append("::")
+                .append(randomString)
+                .append(Hash.encode(String.valueOf(counter).getBytes())).toString();
     }
 
     private String generateEncodedRandomString() {
         byte[] b = new byte[NUM_RAND_CHARACTERS];
         new Random().nextBytes(b);
-        return encoder.encode(b);
+        return Hash.encode(b);
     }
 
 }

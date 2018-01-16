@@ -19,39 +19,15 @@ public class MerkleTree {
 
     private LinkedList<Node> nodes = new LinkedList<>();
 
-    private MessageDigest md = MessageDigest.getInstance("SHA-256");
-
-    public MerkleTree(Set<byte[]> hashList) throws NoSuchAlgorithmException {
+    public MerkleTree(Set<byte[]> hashList) {
         logger.info("Creating new MerkleTree with " + hashList.size() + " nodes");
-
         this.hashList = hashList;
     }
 
-    public MerkleTree(List<Transaction> transactionList) throws NoSuchAlgorithmException {
-        logger.info("Creating new MerkleTree with " + transactionList.size() + " transactions");
-
-        this.transactionList = transactionList;
-    }
-
-    public void initTransactions() {
-        transactionList.forEach(entry -> nodes.add(new Node(entry.getId(), entry.toString().getBytes(), 1)));
-        buildTheTree();
-
-        System.out.println("Root node=" + root.name + ". With a depth of " + root.depth);
-    }
-
-
     public Node build() {
-        hashList.forEach(entry -> nodes.add(new Node("", entry, 0)));
+        hashList.forEach(entry -> nodes.add(new Node(entry, 0)));
         buildTheTree();
         System.out.println("Root node=" + root.hash);
-        return root;
-    }
-
-    public Node buildWithId() {
-        transactionList.forEach(entry -> nodes.add(new Node(entry.getId(), entry.toString().getBytes(), 0)));
-        buildTheTree();
-        System.out.println("Root node=" + root.name);
         return root;
     }
 
@@ -66,9 +42,8 @@ public class MerkleTree {
             // To balance the tree a new node is added to the head of the queue with the same details as the
             // unbalanced leaf node
             if (left.depth != nodes.peek().depth) {
-                logger.info("Tree is not balanced! l.name=" + left.name + " l.depth=" + left.depth + " r.name="
-                        + nodes.peek().name + " r.depth=" + nodes.peek().depth);
-                Node n = new Node(left.name, left.hash, left.depth);
+                logger.info("Tree is not balanced!" + " l.depth=" + left.depth + " r.depth=" + nodes.peek().depth);
+                Node n = new Node(left.hash, left.depth);
 
                 nodes.addFirst(n);
             }
@@ -77,8 +52,7 @@ public class MerkleTree {
 
             byte[] combined = combineByteArrays(left.hash, right.hash);
 
-            Node parent = new Node(left.name + right.name,left, right, md.digest(combined), left.depth+1);
-            logger.info("Creating parent name=" + parent.name);
+            Node parent = new Node(left, right, Hash.digest(combined), left.depth+1);
 
             if (nodes.isEmpty()) {
                 root = parent; // root node
@@ -98,28 +72,26 @@ public class MerkleTree {
     }
 
     class Node {
-        private final String name;
         private final Node left;
         private final Node right;
         private final byte[] hash;
         private final int depth;
         private boolean isLeaf;
 
-        private Node(String name, Node left, Node right, byte[] hash, int depth, boolean isLeaf) {
+        private Node(Node left, Node right, byte[] hash, int depth, boolean isLeaf) {
             this.left = left;
             this.right = right;
             this.hash = hash;
             this.depth = depth;
-            this.name = name;
             this.isLeaf = isLeaf;
         }
 
-        public Node(String name, Node left, Node right, byte[] hash, int depth) {
-            this(name, left, right, hash, depth, false);
+        public Node(Node left, Node right, byte[] hash, int depth) {
+            this(left, right, hash, depth, false);
         }
 
-        public Node(String name, byte[] hash, int depth) {
-            this(name, null, null, hash, depth, true);
+        public Node(byte[] hash, int depth) {
+            this(null, null, hash, depth, true);
         }
 
         public byte[] getHash() {

@@ -1,32 +1,30 @@
 package ie.km.ripple.bc;
 
 public class Transaction {
-    private final String id;
+    private final Account source;
 
-    private final String source;
-
-    private final String destination;
+    private final Account destination;
 
     private final Long amount;
 
     private final long timestamp = System.currentTimeMillis();
 
-    public Transaction(String id, String source, String destination, Long amount) {
-        this.id = id;
+    public Transaction(Account source, Account destination, Long amount) {
         this.source = source;
         this.destination = destination;
         this.amount = amount;
+        System.out.println("Creating " + toString());
     }
 
     public Long getAmount() {
         return amount;
     }
 
-    public String getDestination() {
+    public Account getDestination() {
         return destination;
     }
 
-    public String getSource() {
+    public Account getSource() {
         return source;
     }
 
@@ -37,14 +35,10 @@ public class Transaction {
     @Override
     public String toString() {
         return "Transaction{" +
-                "source='" + source + '\'' +
-                ", destination='" + destination + '\'' +
+                "source='" + source.getAccountNumber() + '\'' +
+                ", destination='" + destination.getAccountNumber() + '\'' +
                 ", amount=" + amount +
                 ", timestamp=" + timestamp +
                 '}';
-    }
-
-    public String getId() {
-        return id;
     }
 }
